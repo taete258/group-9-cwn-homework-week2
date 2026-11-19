@@ -1,0 +1,9 @@
+node_modules/
+test-results/
+.DS_Store
+# ฐานข้อมูลที่สร้างตอนรัน (seed สร้างใหม่ได้)
+app/data/*.db
+# artifact ของรอบ BUG_MODE เก็บเฉพาะสคริปต์และ log ที่ BUG-HUNT.md อ้างถึง
+app/.b13/*
+!app/.b13/bugrun.sh
+!app/.b13/bug-B*.txt

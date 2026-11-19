@@ -1,0 +1,97 @@
+<%# wizard.ejs · ขั้นตอนยื่น 3 ขั้น (B05 · CONTRACT §2.5) — ส่วนที่เปลี่ยนตามข้อมูลวาดด้วยสคริปต์ท้ายไฟล์ %>
+<% const stepText = { 1: '1/3 กรอกข้อมูล', 2: '2/3 แนบเอกสาร', 3: '3/3 ชำระเงิน' }; %>
+<div class="wizard" id="wizard" data-service="<%= svc.id %>">
+  <p><a href="/citizen">&larr; กลับไปคำขอของฉัน</a></p>
+  <h1 data-testid="service-name"><%= svc.name %></h1>
+
+  <ol class="wizard-steps" aria-label="ขั้นตอนการยื่นคำขอ">
+    <li data-step-dot="1"<% if (step === 1) { %> aria-current="step"<% } %>>1 กรอกข้อมูล</li>
+    <li data-step-dot="2"<% if (step === 2) { %> aria-current="step"<% } %>>2 แนบเอกสาร</li>
+    <li data-step-dot="3"<% if (step === 3) { %> aria-current="step"<% } %>>3 ชำระเงิน</li>
+  </ol>
+  <p class="wizard-current">ขั้นตอนปัจจุบัน: <strong data-testid="wizard-step" id="wizard-step" aria-live="polite"><%= stepText[step] %></strong></p>
+  <p id="draft-box"<% if (!draft) { %> hidden<% } %>>รหัสร่าง: <strong data-testid="draft-id" id="draft-id"><%= draft ? draft.draftId : '' %></strong>
+    <span class="muted">(ร่างยังไม่มีเลขคำขอ เลขคำขอออกเมื่อชำระเงินสำเร็จ)</span></p>
+
+  <%# ---------------- ขั้น 1 ---------------- %>
+  <section class="card" id="step-1" aria-labelledby="step-1-title"<% if (step !== 1) { %> hidden<% } %>>
+    <h2 id="step-1-title" tabindex="-1">กรอกข้อมูลคำขอ</h2>
+    <form id="form-step-1" novalidate onsubmit="return false;">
+      <% if (svc.id === 'SV-01') { %>
+        <div class="field">
+          <label for="qty-input">จำนวนฉบับ (1–5 ฉบับ)</label>
+          <input id="qty-input" name="qty" type="number" inputmode="numeric" step="1" min="1" max="5"
+                 data-testid="qty-input" value="<%= qty %>" aria-describedby="fee-help fee-error-slot">
+        </div>
+      <% } else if (svc.id === 'SV-03') { %>
+        <div class="field">
+          <label for="area-input">พื้นที่ก่อสร้าง/ต่อเติม (ตร.ม. จำนวนเต็ม 1–500)</label>
+          <input id="area-input" name="areaSqm" type="number" inputmode="numeric" step="1" min="1" max="500"
+                 data-testid="area-input" value="<%= area %>" aria-describedby="fee-help fee-error-slot">
+        </div>
+      <% } else { %>
+        <p class="muted">บริการนี้ไม่ต้องกรอกข้อมูลเพิ่มเติม ค่าธรรมเนียมคงที่</p>
+      <% } %>
+      <p id="fee-help" class="muted"><%= svc.feeText %></p>
+      <p class="fee-line">ค่าธรรมเนียม: <strong data-testid="fee-total" id="fee-total" aria-live="polite"><%= fee === null ? '–' : fmt.baht(fee) %></strong></p>
+      <div id="fee-error-slot"><% if (feeError) { %><p class="field-error" data-testid="fee-error" role="alert"><%= feeError %></p><% } %></div>
+      <div class="row wizard-actions">
+        <button type="button" data-testid="to-upload-btn" id="to-upload-btn"<% if (!feeValid) { %> disabled<% } %>>ถัดไป: แนบเอกสาร</button>
+        <button type="button" class="btn-secondary" data-testid="save-draft-btn" id="save-draft-btn">บันทึกร่าง</button>
+      </div>
+    </form>
+  </section>
+
+  <%# ---------------- ขั้น 2 ---------------- %>
+  <section class="card" id="step-2" aria-labelledby="step-2-title"<% if (step !== 2) { %> hidden<% } %>>
+    <h2 id="step-2-title" tabindex="-1">แนบเอกสาร</h2>
+    <p class="muted">รับเฉพาะไฟล์ PDF, JPG, PNG ขนาดไม่เกิน 5 MB ต่อไฟล์ แนบรวมได้สูงสุด 5 ไฟล์ต่อคำขอ · ✱ = เอกสารบังคับ</p>
+    <div id="upload-error-slot"></div>
+    <div id="upload-status" class="muted" role="status" aria-live="polite"></div>
+    <% svc.docs.concat([{ key: 'extra', label: 'เอกสารเพิ่มเติม', required: false, multiple: true }]).forEach(function (d) { %>
+      <div class="upload-slot" data-slot="<%= d.key %>">
+        <label for="upload-<%= d.key %>"><%= d.label %><% if (d.required) { %> <span aria-hidden="true">✱</span><span class="sr-only">(บังคับ)</span><% } else { %> <span class="muted">(ไม่บังคับ<% if (d.multiple) { %> · เลือกได้หลายไฟล์<% } %>)</span><% } %><% if (d.pdfOnly) { %> <span class="muted">· PDF เท่านั้น</span><% } %></label>
+        <input type="file" id="upload-<%= d.key %>" data-testid="upload-input-<%= d.key %>" data-doc-key="<%= d.key %>"
+               accept="<%= d.pdfOnly ? '.pdf,application/pdf' : '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png' %>"<% if (d.multiple) { %> multiple<% } %>>
+        <ul class="file-list" data-file-list="<%= d.key %>" aria-label="ไฟล์ที่แนบในช่อง <%= d.label %>"></ul>
+      </div>
+    <% }); %>
+    <div id="missing-slot"></div>
+    <div class="row wizard-actions">
+      <button type="button" data-testid="to-payment-btn" id="to-payment-btn" disabled>ไปชำระเงิน</button>
+      <button type="button" class="btn-secondary" id="back-to-1">ย้อนกลับ</button>
+    </div>
+  </section>
+
+  <%# ---------------- ขั้น 3 ---------------- %>
+  <section class="card" id="step-3" aria-labelledby="step-3-title"<% if (step !== 3) { %> hidden<% } %>>
+    <h2 id="step-3-title" tabindex="-1">ชำระเงินด้วย PromptPay QR (จำลอง)</h2>
+    <p>ยอดที่ต้องชำระ: <strong data-testid="payment-amount" id="payment-amount"><%= fee === null ? '–' : fmt.baht(fee) %></strong></p>
+    <p class="muted">QR มีอายุ 15 นาที เมื่อหมดอายุต้องสร้าง QR ใหม่ · ยอดชำระต้องตรงกับค่าธรรมเนียม</p>
+    <div id="pay-area" aria-live="polite"></div>
+    <div class="row wizard-actions">
+      <button type="button" class="btn-secondary" id="back-to-2" hidden>ย้อนกลับ</button>
+    </div>
+  </section>
+</div>
+
+<style>
+  .wizard-steps { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; padding: 0; margin: .5rem 0; }
+  .wizard-steps li { padding: .2rem .7rem; border: 1px solid #6b7680; border-radius: 999px; background: #fff; }
+  .wizard-steps li[aria-current="step"] { background: #0a4f8a; color: #fff; border-color: #0a4f8a; font-weight: bold; }
+  .upload-slot { border-top: 1px solid #d5dbe1; padding: .75rem 0; display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+  .upload-slot input[type=file] { max-width: 100%; }
+  .file-list { list-style: none; padding: 0; margin: 0; }
+  .file-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .2rem 0; word-break: break-all; }
+  .wizard-actions { margin-top: .75rem; }
+  .qr-box { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+  .qr-box img { width: 200px; max-width: 100%; height: auto; border: 1px solid #d5dbe1; background: #fff; }
+  .pay-status { display: inline-block; padding: .05rem .55rem; border-radius: 999px; border: 1px solid #6b7680; background: #eef2f6; }
+  .pay-status[data-status="PAID"] { background: #e8f5e9; color: #1b5e20; border-color: #1b5e20; }
+  .pay-status[data-status="EXPIRED"] { background: #fdecea; color: #7f1013; border-color: #a4161a; }
+  .receipt { border: 1px dashed #1b5e20; border-radius: 8px; padding: .75rem; margin-top: .75rem; }
+  .receipt dt { font-weight: bold; }
+  .receipt dd { margin: 0 0 .4rem 0; }
+</style>
+<script type="application/json" id="wizard-state"><%- stateJson %></script>
+<%- include('_wizard-script') %>

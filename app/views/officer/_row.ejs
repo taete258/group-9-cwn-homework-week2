@@ -1,0 +1,13 @@
+<%# แถวคิว 1 แถว (B07) · ใช้ทั้งใน tbody และ <template> สำหรับเปลี่ยนตัวกรองฝั่ง browser %>
+<% const c = r.c, it = r.item; %>
+<tr data-testid="queue-row" data-case-no="<%= c.case_no %>" data-owner="<%= c.owner || '' %>" data-status="<%= c.status %>" data-sla-level="<%= it.slaLevel || '' %>" data-unclaimed="<%= r.unclaimed ? '1' : '0' %>" data-mine="<%= r.mine ? '1' : '0' %>">
+  <td data-testid="row-case-no"><a href="/officer/cases/<%= c.case_no %>"><%= c.case_no %></a></td>
+  <td data-testid="row-service"><%= serviceText(c.service_id) %></td>
+  <td data-testid="row-applicant"><%= c.applicant_name %></td>
+  <td data-testid="row-id-masked"><%= it.idMasked %></td>
+  <td><span class="status" data-testid="row-status" data-status="<%= c.status %>"><%= C.STATUS_LABEL[c.status] || c.status %></span><% if (c.service_id === 'SV-03' && c.step) { %><br><small class="muted"><%= C.STEP_LABEL[c.step] %></small><% } %></td>
+  <td><time data-testid="row-due" data-iso="<%= c.due_at ? fmt.iso(c.due_at) : '' %>"><%= c.due_at ? fmt.date(c.due_at) : '–' %></time></td>
+  <td><% if (it.slaLevel) { %><span class="level" data-testid="row-sla-level" data-level="<%= it.slaLevel %>"><%= C.SLA_LABEL[it.slaLevel] %></span><% } else { %><span data-testid="row-sla-level" data-level="">–</span><% } %></td>
+  <td data-testid="row-owner"><%= c.owner || '' %></td>
+  <td><% if (r.canClaim) { %><button type="button" class="btn btn-small" data-testid="claim-btn" data-claim="<%= c.case_no %>" aria-label="รับเรื่อง <%= c.case_no %>">รับเรื่อง</button><% } %></td>
+</tr>

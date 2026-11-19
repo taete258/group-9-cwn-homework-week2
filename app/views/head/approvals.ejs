@@ -1,0 +1,29 @@
+<%# /head/approvals · รายการรออนุมัติ (B07) · CONTRACT §2.8 · FR-16 · BR-16 BR-21 %>
+<section class="card">
+  <h1>รายการรออนุมัติ</h1>
+  <p class="muted">คำขอที่ผ่านขั้นแผนกแล้ว เรียงตามกำหนดเสร็จ · เปิดคำขอเพื่ออนุมัติหรือไม่อนุมัติ</p>
+</section>
+<% if (rows.length) { %>
+<div class="table-wrap" tabindex="0" aria-label="ตารางรายการรออนุมัติ">
+  <table data-testid="approval-table">
+    <caption class="sr-only">รายการรออนุมัติ</caption>
+    <thead>
+      <tr><th scope="col">เลขคำขอ</th><th scope="col">บริการ</th><th scope="col">ผู้ยื่น</th><th scope="col">กำหนดเสร็จ</th><th scope="col">ระดับเตือน</th><th scope="col">ดำเนินการ</th></tr>
+    </thead>
+    <tbody>
+    <% rows.forEach((c) => { const lv = rules.slaLevel(c); %>
+      <tr data-testid="approval-row" data-case-no="<%= c.case_no %>">
+        <td data-testid="row-case-no"><%= c.case_no %></td>
+        <td data-testid="row-service"><%= serviceText(c.service_id) %><% if (c.service_id === 'SV-03' && c.step) { %><br><small class="muted"><%= C.STEP_LABEL[c.step] %></small><% } %></td>
+        <td data-testid="row-applicant"><%= c.applicant_name %></td>
+        <td><time data-testid="row-due" data-iso="<%= c.due_at ? fmt.iso(c.due_at) : '' %>"><%= c.due_at ? fmt.date(c.due_at) : '–' %></time></td>
+        <td><% if (lv) { %><span class="level" data-testid="row-sla-level" data-level="<%= lv %>"><%= C.SLA_LABEL[lv] %></span><% } %></td>
+        <td><a class="btn btn-small" data-testid="approval-open" href="/officer/cases/<%= c.case_no %>" aria-label="เปิดคำขอ <%= c.case_no %>">เปิดคำขอ</a></td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } else { %>
+<p class="muted" data-testid="approval-empty">ไม่มีคำขอรออนุมัติ</p>
+<% } %>

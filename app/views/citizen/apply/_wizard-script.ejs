@@ -1,0 +1,353 @@
+<script>
+/* wizard (B05) · สถานะเริ่มต้นจาก #wizard-state · เรียก API ของ routes/citizen-apply.js
+ * ไม่โพลล์เอง (ทุก request กระตุ้น SLA tick ของระบบ) — ผู้ใช้กด "ตรวจสอบการชำระเงิน" เพื่ออ่านสถานะล่าสุด */
+(function () {
+  'use strict';
+  var S = JSON.parse(document.getElementById('wizard-state').textContent);
+  var svc = S.service;
+  var draft = S.draft;
+  var step = S.step;
+  var feeOk = !!S.feeValid;
+  var currentFee = S.fee;
+  var feeSeq = 0;
+  var uploading = 0;
+  var STEP_TEXT = { 1: '1/3 กรอกข้อมูล', 2: '2/3 แนบเอกสาร', 3: '3/3 ชำระเงิน' };
+  var PAY_LABEL = S.payStatusLabel || { PENDING: 'รอชำระ', PAID: 'ชำระแล้ว', EXPIRED: 'QR หมดอายุ' };
+  var TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+  function $(id) { return document.getElementById(id); }
+  function baht(n) {
+    if (n === null || n === undefined || n === '' || isNaN(Number(n))) return '–';
+    return '฿' + String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  /** ISO +07:00 → '1 ธ.ค. 2569 09:15' */
+  function thai(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso || '');
+    if (!m) return '–';
+    return Number(m[3]) + ' ' + TH[Number(m[2]) - 1] + ' ' + (Number(m[1]) + 543) + ' ' + m[4] + ':' + m[5];
+  }
+  function el(tag, attrs, children) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'text') e.textContent = v;
+      else if (k === 'onclick') e.addEventListener('click', v);
+      else e.setAttribute(k, v === true ? '' : v);
+    });
+    (children || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return e;
+  }
+  function api(method, url, body) {
+    var opts = { method: method, headers: { Accept: 'application/json' }, credentials: 'same-origin' };
+    if (body instanceof FormData) opts.body = body;
+    else if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch(url, opts).then(function (res) {
+      var ct = res.headers.get('content-type') || '';
+      var p = ct.indexOf('application/json') >= 0 ? res.json().catch(function () { return null; }) : Promise.resolve(null);
+      return p.then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+    }, function () { return { ok: false, status: 0, data: { message: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่' } }; });
+  }
+  function msgOf(r, fallback) { return (r && r.data && r.data.message) || fallback || 'เกิดข้อผิดพลาด กรุณาลองใหม่'; }
+  function showError(m) { if (window.EG) window.EG.showError(m); }
+  function showSuccess(m) { if (window.EG) window.EG.showSuccess(m); }
+  function clearMessages() { if (window.EG) window.EG.clearMessages(); }
+
+  var qtyEl = $('qty-input');
+  var areaEl = $('area-input');
+  function locked() { return !!(draft && draft.status !== 'DRAFT'); }
+  function inputBody() {
+    if (svc.id === 'SV-01') return { qty: qtyEl.value };
+    if (svc.id === 'SV-03') return { areaSqm: areaEl.value };
+    return {};
+  }
+
+  // ---------------- ขั้น 1: ค่าธรรมเนียมทันที ----------------
+  function setFeeError(msg) {
+    var slot = $('fee-error-slot');
+    slot.innerHTML = '';
+    if (msg) slot.appendChild(el('p', { 'class': 'field-error', 'data-testid': 'fee-error', role: 'alert', text: msg }));
+  }
+  function applyFee(ok, fee, msg) {
+    feeOk = ok;
+    currentFee = ok ? fee : null;
+    $('fee-total').textContent = ok ? baht(fee) : '–';
+    setFeeError(ok ? '' : msg);
+    syncStep1();
+  }
+  function syncStep1() {
+    $('to-upload-btn').disabled = !feeOk;
+    if (qtyEl) qtyEl.disabled = locked();
+    if (areaEl) areaEl.disabled = locked();
+    $('save-draft-btn').disabled = locked();
+  }
+  function onFeeInput() {
+    if (locked()) return;
+    var my = ++feeSeq;
+    var params = new URLSearchParams({ serviceId: svc.id });
+    var b = inputBody();
+    Object.keys(b).forEach(function (k) { params.set(k, b[k]); });
+    api('GET', '/api/fee-quote?' + params.toString()).then(function (r) {
+      if (my !== feeSeq) return; // คำตอบเก่า
+      if (r.ok) applyFee(true, r.data.fee);
+      else applyFee(false, null, msgOf(r));
+    });
+  }
+  [qtyEl, areaEl].forEach(function (x) {
+    if (!x) return;
+    x.addEventListener('input', onFeeInput);
+    x.addEventListener('change', onFeeInput);
+  });
+
+  function setDraft(d) {
+    draft = d;
+    if (d) {
+      $('draft-id').textContent = d.draftId;
+      $('draft-box').hidden = false;
+      var want = '/citizen/new/' + svc.id + '?draft=' + encodeURIComponent(d.draftId);
+      if (location.pathname + location.search !== want) history.replaceState(null, '', want);
+    }
+  }
+  function refreshDraft() {
+    if (!draft) return Promise.resolve(null);
+    return api('GET', '/api/drafts/' + encodeURIComponent(draft.draftId)).then(function (r) {
+      if (r.ok) setDraft(r.data);
+      else showError(msgOf(r));
+      return draft;
+    });
+  }
+  /** สร้าง/บันทึกร่างจากค่าในฟอร์ม → Promise<draft> (reject เมื่อค่าไม่ถูกต้อง) */
+  var savePending = null; // Promise ของการบันทึกร่างที่ยังไม่เสร็จ (ให้การแนบไฟล์รอร่างก่อน)
+  function saveDraft() {
+    var p = saveDraftNow();
+    savePending = p.then(function (d) { return d; }, function () { return null; });
+    savePending.then(function () { savePending = null; });
+    return p;
+  }
+  function saveDraftNow() {
+    if (locked()) return Promise.resolve(draft);
+    var req = draft
+      ? api('PUT', '/api/drafts/' + encodeURIComponent(draft.draftId), inputBody())
+      : api('POST', '/api/drafts', Object.assign({ serviceId: svc.id }, inputBody()));
+    return req.then(function (r) {
+      if (!r.ok) {
+        if (r.status === 400) applyFee(false, null, msgOf(r));
+        else showError(msgOf(r));
+        throw new Error('save failed');
+      }
+      if (draft) { setDraft(r.data); applyFee(true, r.data.fee); return draft; }
+      setDraft({ draftId: r.data.draftId, status: 'DRAFT', files: [], missing: [], payment: null, fee: r.data.fee });
+      applyFee(true, r.data.fee);
+      return refreshDraft();
+    });
+  }
+  $('save-draft-btn').addEventListener('click', function () {
+    clearMessages();
+    saveDraft().then(function (d) { showSuccess('บันทึกร่างแล้ว รหัสร่าง ' + d.draftId); }, function () {});
+  });
+  $('to-upload-btn').addEventListener('click', function () {
+    clearMessages();
+    saveDraft().then(function () { goStep(2); }, function () {});
+  });
+
+  // ---------------- สลับขั้น ----------------
+  function goStep(n) {
+    step = n;
+    [1, 2, 3].forEach(function (i) {
+      $('step-' + i).hidden = i !== n;
+      var dot = document.querySelector('[data-step-dot="' + i + '"]');
+      if (i === n) dot.setAttribute('aria-current', 'step'); else dot.removeAttribute('aria-current');
+    });
+    $('wizard-step').textContent = STEP_TEXT[n];
+    if (n === 2) renderFiles();
+    if (n === 3) renderPay();
+    var h = $('step-' + n + '-title');
+    if (h) h.focus();
+  }
+  $('back-to-1').addEventListener('click', function () { clearMessages(); goStep(1); });
+  $('back-to-2').addEventListener('click', function () { clearMessages(); goStep(2); });
+
+  // ---------------- ขั้น 2: ไฟล์ ----------------
+  function setUploadError(msg) {
+    var slot = $('upload-error-slot');
+    slot.innerHTML = '';
+    if (msg) slot.appendChild(el('p', { 'class': 'alert alert-error', 'data-testid': 'upload-error', role: 'alert', text: msg }));
+  }
+  function sizeText(n) {
+    if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+    return Math.max(1, Math.round(n / 1024)) + ' KB';
+  }
+  function renderFiles() {
+    var list = (draft && draft.files) || [];
+    var lock = locked();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-file-list]'), function (ul) {
+      var key = ul.getAttribute('data-file-list');
+      ul.innerHTML = '';
+      list.filter(function (f) { return f.docKey === key; }).forEach(function (f) {
+        var li = el('li', { 'data-testid': 'file-item', 'data-name': f.name, 'data-doc-key': f.docKey, 'data-file-id': f.fileId }, [
+          el('span', { text: f.name + ' (' + sizeText(f.size) + ')' }),
+        ]);
+        if (!lock) {
+          li.appendChild(el('button', {
+            type: 'button', 'class': 'btn-secondary btn-small', 'data-testid': 'file-remove-btn',
+            'aria-label': 'ลบไฟล์ ' + f.name, text: 'ลบ', onclick: function () { removeFile(f); },
+          }));
+        }
+        ul.appendChild(li);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('input[type=file][data-doc-key]'), function (inp) {
+      inp.disabled = lock;
+    });
+    var missing = (draft && draft.missing) || svc.docs.filter(function (d) { return d.required; }).map(function (d) { return d.label; });
+    var slot = $('missing-slot');
+    slot.innerHTML = '';
+    if (missing.length) {
+      slot.appendChild(el('p', { 'class': 'alert alert-info', 'data-testid': 'missing-docs', text: 'ยังขาดเอกสาร: ' + missing.join(', ') }));
+    }
+    $('to-payment-btn').disabled = missing.length > 0 || uploading > 0 || !draft;
+    $('back-to-1').hidden = lock;
+  }
+  function removeFile(f) {
+    clearMessages();
+    setUploadError('');
+    api('DELETE', '/api/drafts/' + encodeURIComponent(draft.draftId) + '/files/' + encodeURIComponent(f.fileId)).then(function (r) {
+      if (!r.ok && r.status !== 404) showError(msgOf(r));
+      return refreshDraft();
+    }).then(renderFiles);
+  }
+  function uploadFrom(input) {
+    var picked = Array.prototype.slice.call(input.files || []);
+    if (!picked.length) return;
+    if (!draft) {
+      // ร่างยังบันทึกไม่เสร็จ (กด "ถัดไป" แล้วเลือกไฟล์ทันที) → รอแล้วค่อยอัปโหลด ไม่ทิ้งไฟล์เงียบ ๆ
+      if (savePending) savePending.then(function (d) { if (d) uploadFrom(input); });
+      return;
+    }
+    var key = input.getAttribute('data-doc-key');
+    var errors = [];
+    clearMessages();
+    setUploadError('');
+    uploading++;
+    $('to-payment-btn').disabled = true;
+    $('upload-status').textContent = 'กำลังอัปโหลด…';
+    var chain = Promise.resolve();
+    picked.forEach(function (f) {
+      chain = chain.then(function () {
+        var fd = new FormData();
+        fd.append('docKey', key);
+        fd.append('file', f, f.name);
+        return api('POST', '/api/drafts/' + encodeURIComponent(draft.draftId) + '/files', fd).then(function (r) {
+          if (!r.ok) errors.push(msgOf(r));
+        });
+      });
+    });
+    chain.then(refreshDraft).then(function () {
+      uploading--;
+      input.value = '';
+      $('upload-status').textContent = errors.length ? '' : 'แนบไฟล์แล้ว';
+      renderFiles();
+      if (errors.length) setUploadError(errors[errors.length - 1]);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[type=file][data-doc-key]'), function (inp) {
+    inp.addEventListener('change', function () { uploadFrom(inp); });
+  });
+  $('to-payment-btn').addEventListener('click', function () {
+    clearMessages();
+    if (draft && draft.missing && draft.missing.length) return;
+    goStep(3);
+  });
+
+  // ---------------- ขั้น 3: ชำระเงิน ----------------
+  function statusBadge(st) {
+    return el('span', { 'class': 'pay-status', 'data-testid': 'payment-status', 'data-status': st, text: PAY_LABEL[st] });
+  }
+  function renderPay() {
+    var area = $('pay-area');
+    var p = draft && draft.payment;
+    var amount = p ? p.amount : (draft ? draft.fee : currentFee);
+    $('payment-amount').textContent = baht(amount);
+    $('back-to-2').hidden = !!p || locked();
+    area.innerHTML = '';
+    if (!p) {
+      area.appendChild(el('button', { type: 'button', 'data-testid': 'create-qr-btn', text: 'สร้าง QR', onclick: function () { createQr(this); } }));
+      return;
+    }
+    if (p.status === 'PENDING') {
+      area.appendChild(el('div', { 'class': 'qr-box' }, [
+        el('img', { 'data-testid': 'qr-image', src: '/api/payments/' + encodeURIComponent(p.ref) + '/qr.svg', alt: 'QR PromptPay จำลอง เลขอ้างอิง ' + p.ref + ' ยอด ' + baht(p.amount), width: '200', height: '200' }),
+        el('div', {}, [
+          el('p', {}, ['เลขอ้างอิง: ', el('strong', { 'data-testid': 'qr-ref', text: p.ref })]),
+          el('p', {}, [el('time', { 'data-testid': 'qr-expires', 'data-iso': p.qrExpiresAt, datetime: p.qrExpiresAt, text: 'หมดอายุ ' + thai(p.qrExpiresAt) })]),
+          el('p', {}, ['สถานะ: ', statusBadge('PENDING')]),
+          el('div', { 'class': 'row' }, [
+            el('button', { type: 'button', 'data-testid': 'refresh-payment-btn', text: 'ตรวจสอบการชำระเงิน', onclick: refreshPayment }),
+            el('button', { type: 'button', 'class': 'btn-secondary', 'data-testid': 'simulate-pay-btn', text: 'ชำระด้วยแอปธนาคาร (จำลอง)', onclick: simulatePay }),
+          ]),
+        ]),
+      ]));
+      return;
+    }
+    if (p.status === 'EXPIRED') {
+      area.appendChild(el('p', { 'class': 'alert alert-error', 'data-testid': 'qr-expired-msg', role: 'alert', text: 'QR หมดอายุ กรุณาสร้าง QR ใหม่' }));
+      area.appendChild(el('p', {}, ['สถานะ: ', statusBadge('EXPIRED'), ' ', el('span', { 'class': 'muted', text: '(เลขอ้างอิงเดิม ' + p.ref + ')' })]));
+      area.appendChild(el('button', { type: 'button', 'data-testid': 'regenerate-qr-btn', text: 'สร้าง QR ใหม่', onclick: function () { createQr(this); } }));
+      return;
+    }
+    // PAID
+    area.appendChild(el('p', {}, ['สถานะ: ', statusBadge('PAID')]));
+    area.appendChild(el('section', { 'class': 'receipt', 'aria-labelledby': 'receipt-title' }, [
+      el('h3', { id: 'receipt-title', text: 'ใบเสร็จรับเงิน' }),
+      el('dl', {}, [
+        el('dt', { text: 'เลขคำขอ' }), el('dd', { 'data-testid': 'submitted-case-no', text: p.caseNo || '' }),
+        el('dt', { text: 'เลขใบเสร็จ' }), el('dd', { 'data-testid': 'receipt-no', text: p.receiptNo || '' }),
+        el('dt', { text: 'ยอดชำระ' }), el('dd', { 'data-testid': 'receipt-amount', text: baht(p.amount) }),
+        el('dt', { text: 'วันเวลาชำระ' }), el('dd', {}, [el('time', { 'data-testid': 'receipt-paid-at', 'data-iso': p.paidAt, datetime: p.paidAt, text: thai(p.paidAt) })]),
+        el('dt', { text: 'เลขอ้างอิงการชำระ' }), el('dd', { text: p.ref }),
+      ]),
+      p.caseNo ? el('a', { 'class': 'btn', 'data-testid': 'go-case-btn', href: '/citizen/cases/' + encodeURIComponent(p.caseNo), text: 'ดูคำขอ' }) : null,
+    ]));
+  }
+  function createQr(btn) {
+    if (!draft) return;
+    clearMessages();
+    if (btn) btn.disabled = true;
+    api('POST', '/api/drafts/' + encodeURIComponent(draft.draftId) + '/payment').then(function (r) {
+      if (!r.ok) {
+        if (btn) btn.disabled = false;
+        showError(msgOf(r));
+        if (r.data && r.data.code === 'MISSING_DOCS') return refreshDraft().then(function () { goStep(2); });
+        return null;
+      }
+      return refreshDraft().then(renderPay);
+    });
+  }
+  function refreshPayment() {
+    var p = draft && draft.payment;
+    if (!p) return;
+    clearMessages();
+    api('GET', '/api/payments/' + encodeURIComponent(p.ref)).then(function (r) {
+      if (!r.ok) { showError(msgOf(r)); return; }
+      draft.payment = r.data;
+      if (r.data.status === 'PAID') { draft.caseNo = r.data.caseNo; draft.status = 'SUBMITTED'; }
+      renderPay();
+    });
+  }
+  function simulatePay() {
+    var p = draft && draft.payment;
+    if (!p) return;
+    clearMessages();
+    api('POST', '/api/payments/' + encodeURIComponent(p.ref) + '/simulate').then(function (r) {
+      if (!r.ok) showError(msgOf(r));
+      refreshPayment();
+    });
+  }
+
+  // ---------------- เริ่มต้น ----------------
+  if (draft) setDraft(draft);
+  syncStep1();
+  renderFiles();
+  if (step === 3) renderPay();
+})();
+</script>

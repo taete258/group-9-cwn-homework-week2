@@ -1,0 +1,29 @@
+# รันคำสั่งเดียว (จากโฟลเดอร์ app/):
+#   docker compose up --build                                → เว็บถูกต้อง · ปิด test hook (/api/test/* = 404)
+#   TEST_MODE=1 docker compose up --build                    → เปิด test hook (reset / clock / pay / tamper)
+#   TEST_MODE=1 BUG_MODE=B03,B07 docker compose up --build   → เปิดบั๊กตาม BUGS.md (ไม่ตั้ง/ว่าง = ถูกต้อง 100%)
+# เปลี่ยนโหมดต้อง recreate container: เพิ่ม --force-recreate (หรือ docker compose down ก่อน)
+# เว็บ: http://localhost:${PORT:-3000} · health: GET /api/health → 200 {"status":"ok"}
+# ฐานข้อมูล: container /data/egov.db = host ./data/egov.db (ใช้เป็น DB_PATH ของ TC-NFR-04 inspection)
+services:
+  web:
+    build: .
+    image: egov-eservice:latest
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      TEST_MODE: ${TEST_MODE:-}
+      BUG_MODE: ${BUG_MODE:-}
+      DB_PATH: /data/egov.db
+      PORT: "3000"
+      TZ: Asia/Bangkok
+      LOG_REQUESTS: ${LOG_REQUESTS:-}
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+    restart: unless-stopped

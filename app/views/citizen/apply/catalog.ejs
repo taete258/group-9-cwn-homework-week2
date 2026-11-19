@@ -1,0 +1,11 @@
+<%# catalog.ejs · แคตตาล็อก 3 บริการ (B05 · FR-04) %>
+<h1>เลือกบริการ</h1>
+<p class="muted">เลือกบริการที่ต้องการยื่นคำขอ ระบบจะคำนวณค่าธรรมเนียมให้ทันทีในขั้นถัดไป</p>
+<% services.forEach(function (s) { %>
+  <section class="card service-card" aria-labelledby="svc-<%= s.id %>">
+    <h2 id="svc-<%= s.id %>"><%= s.name %> <span class="muted">(<%= s.id %>)</span></h2>
+    <p>ค่าธรรมเนียม: <%= s.feeText %> · ระยะเวลาดำเนินการ <%= s.sla %> วันทำการ</p>
+    <p>เอกสาร: <%= s.docs.map(function (d) { return d.label + (d.required ? ' (บังคับ)' : ' (ไม่บังคับ)'); }).join(' · ') %></p>
+    <a class="btn" href="/citizen/new/<%= s.id %>">เริ่มยื่นคำขอ<span class="sr-only"> <%= s.name %></span></a>
+  </section>
+<% }); %>

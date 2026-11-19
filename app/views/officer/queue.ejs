@@ -1,0 +1,88 @@
+<%# /officer/queue · คิวงาน (B07) · CONTRACT §2.7 · FR-12 FR-13 · BR-16 BR-17 BR-18 %>
+<section class="card">
+  <h1>คิวงาน<% if (user.role === 'officer' && C.DEPT_LABEL[user.dept]) { %> · <%= C.DEPT_LABEL[user.dept] %><% } else if (user.role === 'head') { %> · ทุกแผนก (อ่านอย่างเดียว)<% } %></h1>
+  <div class="row">
+    <div class="field">
+      <label for="queue-filter">แสดง</label>
+      <select id="queue-filter" name="filter" data-testid="queue-filter">
+        <option value="all" <%= filter === 'all' ? 'selected' : '' %>>ทั้งหมด</option>
+        <option value="unclaimed" <%= filter === 'unclaimed' ? 'selected' : '' %>>ยังไม่มีผู้รับ</option>
+        <option value="mine" <%= filter === 'mine' ? 'selected' : '' %>>ของฉัน</option>
+      </select>
+    </div>
+    <% if (isOfficer) { %>
+    <p class="field">งานในมือของฉัน: <strong data-testid="workload-count"><%= workload %></strong> / 10 เรื่อง</p>
+    <% } %>
+  </div>
+  <noscript><p class="muted">เปิด JavaScript เพื่อเปลี่ยนตัวกรอง หรือใช้ลิงก์: <a href="?filter=all">ทั้งหมด</a> · <a href="?filter=unclaimed">ยังไม่มีผู้รับ</a> · <a href="?filter=mine">ของฉัน</a></p></noscript>
+</section>
+
+<% const shown = rows.filter((r) => filter === 'all' || (filter === 'unclaimed' && r.unclaimed) || (filter === 'mine' && r.mine)); %>
+<div class="table-wrap" tabindex="0" aria-label="ตารางคิวงาน">
+  <table data-testid="queue-table">
+    <caption class="sr-only">คิวงาน เรียงตามกำหนดเสร็จ</caption>
+    <thead>
+      <tr>
+        <th scope="col">เลขคำขอ</th><th scope="col">บริการ</th><th scope="col">ผู้ยื่น</th><th scope="col">เลขบัตร</th>
+        <th scope="col">สถานะ</th><th scope="col">กำหนดเสร็จ</th><th scope="col">ระดับเตือน</th><th scope="col">ผู้ถือเรื่อง</th><th scope="col">ดำเนินการ</th>
+      </tr>
+    </thead>
+    <tbody id="queue-body">
+      <% shown.forEach((r) => { %><%- include('_row', { r }) %><% }) %>
+    </tbody>
+  </table>
+</div>
+<p data-testid="queue-empty" id="queue-empty" class="muted"<%= shown.length ? ' hidden' : '' %>>ไม่มีงานในคิว</p>
+<template id="queue-all"><% rows.forEach((r) => { %><%- include('_row', { r }) %><% }) %></template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function apply(v) {
+    var body = document.getElementById('queue-body');
+    var empty = document.getElementById('queue-empty');
+    var tpl = document.getElementById('queue-all');
+    if (!body || !tpl) return;
+    var rows = tpl.content.querySelectorAll('tr[data-testid="queue-row"]');
+    body.innerHTML = '';
+    var n = 0;
+    rows.forEach(function (tr) {
+      if (v === 'all' || (v === 'unclaimed' && tr.dataset.unclaimed === '1') || (v === 'mine' && tr.dataset.mine === '1')) {
+        body.appendChild(tr.cloneNode(true)); n++;
+      }
+    });
+    if (n) empty.setAttribute('hidden', ''); else empty.removeAttribute('hidden');
+  }
+  /* โหลดเนื้อหาหน้าใหม่โดยไม่ navigate (ไม่ชนกับการเปลี่ยนหน้าของผู้ใช้/ชุดทดสอบ) */
+  async function softRefresh() {
+    var r = await fetch(location.href, { headers: { Accept: 'text/html' }, credentials: 'same-origin' });
+    var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+    var nm = doc.getElementById('main');
+    if (nm) document.getElementById('main').innerHTML = nm.innerHTML;
+  }
+  document.addEventListener('change', function (ev) {
+    var sel = ev.target;
+    if (!sel || sel.id !== 'queue-filter') return;
+    apply(sel.value);
+    try { history.replaceState(null, '', sel.value === 'all' ? location.pathname : '?filter=' + encodeURIComponent(sel.value)); } catch (e) {}
+  });
+  document.addEventListener('click', async function (ev) {
+    var btn = ev.target.closest('[data-claim]');
+    if (!btn) return;
+    ev.preventDefault();
+    if (btn.disabled) return;
+    btn.disabled = true;
+    var no = btn.dataset.claim;
+    EG.clearMessages();
+    try {
+      var r = await EG.api('POST', '/api/officer/cases/' + encodeURIComponent(no) + '/claim');
+      if (r.ok) {
+        try { await softRefresh(); } catch (e) { /* ignore */ }
+        EG.showSuccess('รับเรื่อง ' + no + ' แล้ว');
+        return;
+      }
+      EG.showError((r.data && r.data.message) || 'ทำรายการไม่สำเร็จ');
+    } catch (e) { EG.showError('ทำรายการไม่สำเร็จ'); }
+    btn.disabled = false;
+  });
+});
+</script>

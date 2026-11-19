@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหาหลัก</a>
+  <header class="app-header" data-testid="app-header">
+    <div class="brand">
+      <a href="/" class="brand-link">e-Service เทศบาลนครตัวอย่าง <span class="brand-note">(ระบบสมมติ)</span></a>
+    </div>
+    <% if (user) { %>
+      <% const navOk = !(user.role === 'citizen' && !user.registered); %>
+      <% if (navOk) { %>
+      <nav class="app-nav" aria-label="เมนูหลัก">
+        <ul>
+          <% if (user.role === 'citizen') { %>
+            <li><a data-testid="nav-my-cases" href="/citizen" <%- currentPath.startsWith('/citizen') ? 'aria-current="page"' : '' %>>คำขอของฉัน</a></li>
+          <% } %>
+          <% if (user.role === 'officer' || user.role === 'head') { %>
+            <li><a data-testid="nav-queue" href="/officer/queue" <%- currentPath.startsWith('/officer/queue') ? 'aria-current="page"' : '' %>>คิวงาน</a></li>
+          <% } %>
+          <% if (user.role === 'head') { %>
+            <li><a data-testid="nav-approvals" href="/head/approvals" <%- currentPath.startsWith('/head') ? 'aria-current="page"' : '' %>>รออนุมัติ</a></li>
+          <% } %>
+          <% if (user.role === 'officer' || user.role === 'head') { %>
+            <li><a data-testid="nav-bell" href="/notifications" aria-label="แจ้งเตือน <%= bellCount %> รายการ" <%- currentPath.startsWith('/notifications') ? 'aria-current="page"' : '' %>>แจ้งเตือน <span class="badge" data-testid="bell-count"><%= bellCount %></span></a></li>
+          <% } %>
+          <% if (user.role === 'executive') { %>
+            <li><a data-testid="nav-dashboard" href="/dashboard" <%- currentPath.startsWith('/dashboard') ? 'aria-current="page"' : '' %>>Dashboard</a></li>
+          <% } %>
+          <% if (user.role === 'auditor') { %>
+            <li><a data-testid="nav-audit" href="/audit" <%- currentPath.startsWith('/audit') ? 'aria-current="page"' : '' %>>Audit Trail</a></li>
+          <% } %>
+          <% if (user.role === 'admin') { %>
+            <li><a data-testid="nav-admin-services" href="/admin/services" <%- currentPath.startsWith('/admin/services') ? 'aria-current="page"' : '' %>>บริการ</a></li>
+            <li><a data-testid="nav-admin-holidays" href="/admin/holidays" <%- currentPath.startsWith('/admin/holidays') ? 'aria-current="page"' : '' %>>วันหยุด</a></li>
+            <li><a data-testid="nav-admin-users" href="/admin/users" <%- currentPath.startsWith('/admin/users') ? 'aria-current="page"' : '' %>>ผู้ใช้</a></li>
+          <% } %>
+        </ul>
+      </nav>
+      <% } %>
+      <div class="user-box">
+        <span class="user-name" data-testid="user-name"><%= user.name %></span>
+        <span class="user-role" data-testid="user-role" data-role="<%= user.role %>"<% if (user.role === 'officer') { %> data-dept="<%= user.dept %>"<% } %>><%= C.ROLE_LABEL[user.role] || user.role %></span>
+        <button type="button" class="btn btn-small btn-ghost" data-testid="logout-btn" data-action="logout">ออกจากระบบ</button>
+      </div>
+    <% } %>
+  </header>
+  <main id="main" class="container" tabindex="-1">
+    <div id="flash" class="flash" aria-live="polite"></div>
+    <%- body %>
+  </main>
+  <footer class="app-footer">
+    <p>ระบบตัวอย่างเพื่อการเรียนการสอน · ThaiD, PromptPay และลายเซ็นดิจิทัลเป็นตัวจำลอง</p>
+  </footer>
+</body>
+</html>

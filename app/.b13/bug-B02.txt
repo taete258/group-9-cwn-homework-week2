@@ -1,0 +1,101 @@
+[egov] http://0.0.0.0:3000 · TEST_MODE=1 · BUG_MODE=B02
+
+Running 51 tests using 1 worker
+
+[1/51] [chromium] › tests/egov.spec.ts:248:1 › TC-AUTH-01 เลขบัตร 13 หลัก + checksum
+[2/51] [chromium] › tests/egov.spec.ts:279:1 › TC-AUTH-02 OTP ผิด 3 ครั้งล็อก 15 นาที
+[3/51] [chromium] › tests/egov.spec.ts:335:1 › TC-AUTH-03 ลงทะเบียนครั้งแรก
+[4/51] [chromium] › tests/egov.spec.ts:397:1 › TC-AUTH-04 เจ้าหน้าที่ SSO จำลองและหน้าตั้งต้นตามบทบาท
+[5/51] [chromium] › tests/egov.spec.ts:447:1 › TC-FEE-01 ค่าธรรมเนียม SV-01 / SV-02 / SV-03
+[6/51] [chromium] › tests/egov.spec.ts:523:1 › TC-SUBMIT-01 ยื่นคำขอ SV-01 ครบวงจร
+[7/51] [chromium] › tests/egov.spec.ts:584:1 › TC-SUBMIT-02 เอกสารบังคับครบก่อนชำระ
+[8/51] [chromium] › tests/egov.spec.ts:628:1 › TC-SUBMIT-03 ร่าง การลบร่าง และการยกเลิก
+[9/51] [chromium] › tests/egov.spec.ts:723:1 › TC-UPLOAD-01 ขนาดและจำนวนไฟล์
+  1) [chromium] › tests/egov.spec.ts:723:1 › TC-UPLOAD-01 ขนาดและจำนวนไฟล์ ─────────────────────────
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByTestId('file-item')
+    Expected: 1
+    Received: 0
+    Timeout:  60000ms
+
+    Call log:
+      - Expect "toHaveCount" getByTestId('file-item') with timeout 60000ms
+      - waiting for getByTestId('file-item')
+        123 × locator resolved to 0 elements
+            - unexpected value "0"
+
+
+       at helpers.ts:618
+
+      616 |   await tid(page, `upload-input-${docKey}`).setInputFiles(f);
+      617 |   if (accepted) {
+    > 618 |     await expect(items).toHaveCount(before + 1, { timeout: 60_000 });
+          |                         ^
+      619 |   } else {
+      620 |     await expect(tid(page, 'upload-error')).toBeVisible({ timeout: 60_000 });
+      621 |     await expect(items).toHaveCount(before);
+        at attachUi (/workspace/plans/egov-eservice/app/tests/helpers.ts:618:25)
+        at /workspace/plans/egov-eservice/app/tests/egov.spec.ts:734:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    .b13/tr-B02/egov-TC-UPLOAD-01-ขนาดและจำนวนไฟล์-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: .b13/tr-B02/egov-TC-UPLOAD-01-ขนาดและจำนวนไฟล์-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    .b13/tr-B02/egov-TC-UPLOAD-01-ขนาดและจำนวนไฟล์-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace .b13/tr-B02/egov-TC-UPLOAD-01-ขนาดและจำนวนไฟล์-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[10/51] [chromium] › tests/egov.spec.ts:778:1 › TC-UPLOAD-02 ชนิดไฟล์จากเนื้อไฟล์
+[11/51] [chromium] › tests/egov.spec.ts:809:1 › TC-PAY-01 อายุ QR 15:00
+[12/51] [chromium] › tests/egov.spec.ts:853:1 › TC-PAY-02 ยอดเงินและ callback ซ้ำ
+[13/51] [chromium] › tests/egov.spec.ts:881:1 › TC-PAY-03 ชำระพร้อมกัน เลขไม่ซ้ำ
+[14/51] [chromium] › tests/egov.spec.ts:909:1 › TC-PAY-04 เลขคำขอข้ามปี 2569 → 2570
+[15/51] [chromium] › tests/egov.spec.ts:943:1 › TC-QUEUE-01 ลำดับคิวและขอบเขตแผนก
+[16/51] [chromium] › tests/egov.spec.ts:983:1 › TC-QUEUE-02 รับเรื่องซ้อน (พร้อมกันและต่อกัน)
+[17/51] [chromium] › tests/egov.spec.ts:1031:1 › TC-QUEUE-03 งานในมือสูงสุด 10
+[18/51] [chromium] › tests/egov.spec.ts:1093:1 › TC-SLA-01 กำหนดเสร็จตามตารางวันที่
+[19/51] [chromium] › tests/egov.spec.ts:1120:1 › TC-SLA-02 หยุดนับ SLA ระหว่างรอแก้ไข
+[20/51] [chromium] › tests/egov.spec.ts:1214:1 › TC-SLA-03 ระดับเตือน ปกติ / ใกล้ครบกำหนด / เกินกำหนด
+[21/51] [chromium] › tests/egov.spec.ts:1308:1 › TC-NOTI-01 ผู้รับแจ้งเตือนตามระดับ
+[22/51] [chromium] › tests/egov.spec.ts:1325:1 › TC-NOTI-02 ไม่แจ้งซ้ำ ข้ามระดับ และขั้นรออนุมัติ/รอออกเอกสาร
+[23/51] [chromium] › tests/egov.spec.ts:1399:1 › TC-WORKFLOW-01 SV-01 อนุมัติ + ออกเอกสาร
+[24/51] [chromium] › tests/egov.spec.ts:1447:1 › TC-WORKFLOW-02 SV-02 ผ่านหัวหน้า
+[25/51] [chromium] › tests/egov.spec.ts:1497:1 › TC-WORKFLOW-03 SV-03 สามขั้นตอน
+[26/51] [chromium] › tests/egov.spec.ts:1548:1 › TC-WORKFLOW-04 ตีกลับสูงสุด 2 ครั้ง และผลหลังครบ
+[27/51] [chromium] › tests/egov.spec.ts:1624:1 › TC-WORKFLOW-05 เหตุผล ≥ 10 ตัวอักษร (ตีกลับ / ไม่อนุมัติ)
+[28/51] [chromium] › tests/egov.spec.ts:1671:1 › TC-WORKFLOW-06 เวลาแก้ไข 168 ชั่วโมง
+[29/51] [chromium] › tests/egov.spec.ts:1709:1 › TC-DOC-01 ออกเอกสารและข้อมูลในเอกสาร
+[30/51] [chromium] › tests/egov.spec.ts:1760:1 › TC-DOC-02 ตรวจเอกสาร /verify
+[31/51] [chromium] › tests/egov.spec.ts:1804:1 › TC-DOC-03 เอกสารหมดอายุและลายเซ็นไม่ตรง
+[32/51] [chromium] › tests/egov.spec.ts:1850:1 › TC-PDPA-01 ปิดบังเลขบัตรบนจอ
+[33/51] [chromium] › tests/egov.spec.ts:1877:1 › TC-PDPA-02 API (JSON) ไม่ส่งเลขบัตรเต็ม
+[34/51] [chromium] › tests/egov.spec.ts:1905:1 › TC-PDPA-03 แสดงเลขเต็มต้องมีเหตุผลและบันทึก Audit
+[35/51] [chromium] › tests/egov.spec.ts:1954:1 › TC-DASH-01 Dashboard ตัวเลขเริ่มต้น
+[36/51] [chromium] › tests/egov.spec.ts:1991:1 › TC-DASH-02 Dashboard ย้อนหลัง พ.ย. ต.ค. รายปี
+[37/51] [chromium] › tests/egov.spec.ts:2021:1 › TC-DASH-03 ส่งออก Excel/PDF เท่าหน้าจอ และไม่มีข้อมูลส่วนบุคคล
+[38/51] [chromium] › tests/egov.spec.ts:2078:1 › TC-DASH-04 ค่าขอบ "ทันกำหนด" 16:29:59 / 16:30:00 / 16:30:01
+[39/51] [chromium] › tests/egov.spec.ts:2119:1 › TC-AUDIT-01 เหตุการณ์และฟิลด์ใน Audit
+[40/51] [chromium] › tests/egov.spec.ts:2218:1 › TC-AUDIT-02 Audit แก้/ลบไม่ได้ (405)
+[41/51] [chromium] › tests/egov.spec.ts:2248:1 › TC-AUDIT-03 กรองช่วงวันที่ตามเวลาไทย
+[42/51] [chromium] › tests/egov.spec.ts:2295:1 › TC-RBAC-01 ประชาชนเปิดคำขอคนอื่นไม่ได้ (IDOR)
+[43/51] [chromium] › tests/egov.spec.ts:2322:1 › TC-RBAC-02 เจ้าหน้าที่อนุมัติ SV-02 ไม่ได้ (API)
+[44/51] [chromium] › tests/egov.spec.ts:2367:1 › TC-RBAC-03 ตารางสิทธิ์หน้า/API ตามบทบาท
+[45/51] [chromium] › tests/egov.spec.ts:2477:1 › TC-RBAC-04 ผู้ดูแลระบบ: บริการ วันหยุด ผู้ใช้ และยอดที่ล็อก
+[46/51] [chromium] › tests/egov.spec.ts:2560:1 › TC-RBAC-05 สิทธิ์เปิด/ดาวน์โหลดไฟล์แนบ
+[47/51] [chromium] › tests/egov.spec.ts:2637:1 › TC-RBAC-06 ผู้ดูแลระบบ: ช่วงค่าที่ยอมรับ
+[48/51] [chromium] › tests/egov.spec.ts:2704:1 › TC-NFR-01 Responsive 375 / 768 / 1280
+[49/51] [chromium] › tests/egov.spec.ts:2759:1 › TC-NFR-02 WCAG: axe + คีย์บอร์ด + label + สถานะไม่ใช้สีอย่างเดียว
+[50/51] [chromium] › tests/egov.spec.ts:2870:1 › TC-NFR-03 Health เวลาโหลด และผลซ้ำได้
+[51/51] [chromium] › tests/egov.spec.ts:2929:1 › TC-NFR-04 เข้ารหัสข้อมูลส่วนบุคคลที่เก็บ (inspection)
+  1 failed
+    [chromium] › tests/egov.spec.ts:723:1 › TC-UPLOAD-01 ขนาดและจำนวนไฟล์ ──────────────────────────
+  50 passed (10.0m)

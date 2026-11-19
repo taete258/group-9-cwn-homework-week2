@@ -1,0 +1,202 @@
+{
+ "goal": "สร้างเว็บ e-Service กลางตามชุดโจทย์ใน /workspace/egov-brief (อ่าน README.md ก่อน) ต้องทำตาม REQUIREMENTS.md CONTRACT.md TEST-DATA.md DECISIONS.md ครบทุกข้อ รันด้วย Docker Compose คำสั่งเดียว รองรับ TEST_MODE=1 และ BUG_MODE ตาม BUGS.md และมีชุด Playwright ครบทุก TC ใน TEST-PLAN.md · stack: Node.js 20 + Express + better-sqlite3 + EJS (server-rendered) · ทุกบล็อกเขียนเฉพาะไฟล์ของตัวเองตาม path ที่ระบุ · path ทุกไฟล์สัมพัทธ์กับโฟลเดอร์งาน (cwd) ของบล็อก",
+ "name": "egov-eservice",
+ "blocks": [
+  {
+   "id": "B01",
+   "title": "โครงโปรเจกต์ + compose + DB + test hook",
+   "size": "L",
+   "depends_on": [],
+   "skill": "yolo",
+   "difficulty": 3,
+   "output": "docker-compose.yml",
+   "done": "docker compose up เปิดเว็บได้ · GET /api/health = 200 · TEST_MODE=1 แล้ว POST /api/test/reset และ PUT /api/test/clock ทำงาน · ไม่ตั้ง TEST_MODE แล้ว /api/test/* = 404",
+   "detail": "อ่าน /workspace/egov-brief: README.md · CONTRACT.md (§0 หลักการ §1 route และ test hook ทั้งหมด) · TEST-DATA.md · BUGS.md (กลไก BUG_MODE) · DECISIONS.md. เขียน: docker-compose.yml Dockerfile package.json src/server.js (mount router ของทุกบล็อกจาก src/routes/*.js ถ้ามี) src/db/schema.sql src/db/index.js (DB_PATH) src/lib/clock.js (นาฬิกาทดสอบ Asia/Bangkok) src/lib/bugs.js (isBug('B03')) src/routes/test.js (reset clock pay tamper) views/layout.ejs src/lib/session.js ARCH.md (โครงไฟล์ + ข้อตกลงร่วมให้บล็อกอื่นอ่าน)",
+   "timeout": 3600
+  },
+  {
+   "id": "B02",
+   "title": "ข้อมูล seed ตาม TEST-DATA",
+   "size": "M",
+   "depends_on": [
+    "B01"
+   ],
+   "skill": "cyolo",
+   "difficulty": 2,
+   "output": "src/db/seed.js",
+   "done": "reset แล้วได้ผู้ใช้ บริการ วันหยุด คำขอ และไฟล์ทดสอบครบตาม TEST-DATA.md ทุกแถว",
+   "detail": "อ่าน TEST-DATA.md ทั้งไฟล์ · CONTRACT.md · ARCH.md · src/db/schema.sql. เขียนเฉพาะ src/db/seed.js และ src/db/fixtures/",
+   "timeout": 2400
+  },
+  {
+   "id": "B03",
+   "title": "กฎธุรกิจตัวเลข (ค่าธรรมเนียม · SLA · เตือน · เลขคำขอ)",
+   "size": "L",
+   "depends_on": [
+    "B01"
+   ],
+   "skill": "review",
+   "worker": "yolo",
+   "difficulty": 3,
+   "max_rounds": 3,
+   "output": "src/lib/rules.js",
+   "done": "ทุกค่าขอบใน BR-01 BR-04 BR-05 BR-09 BR-10 BR-12 BR-13 BR-14 BR-16 BR-19 BR-20 BR-23 BR-25 BR-26 ให้ผลตรงตาราง และ unit test src/lib/rules.test.js ผ่าน · บั๊กใน BUGS.md ที่เป็นกฎตัวเลขเปิดด้วย isBug ได้",
+   "detail": "อ่าน REQUIREMENTS.md §2 BR ทั้งหมด · DECISIONS.md · BUGS.md · TEST-DATA.md §วันหยุด · ARCH.md. เขียนเฉพาะ src/lib/rules.js และ src/lib/rules.test.js ใช้ clock.js ห้ามเรียกเวลาเครื่อง",
+   "timeout": 3600
+  },
+  {
+   "id": "B04",
+   "title": "ล็อกอินประชาชน/เจ้าหน้าที่ + ลงทะเบียน + สิทธิ์ตามบทบาท",
+   "size": "M",
+   "depends_on": [
+    "B01"
+   ],
+   "skill": "cyolo",
+   "difficulty": 2,
+   "output": "src/routes/auth.js",
+   "done": "BR-01 BR-02 BR-03 BR-21(สิทธิ์ route) ตรง CONTRACT ทั้ง data-testid และข้อความ error · route ที่ไม่มีสิทธิ์ตอบตามตาราง CONTRACT §1",
+   "detail": "อ่าน CONTRACT.md (§1 route · หน้า /login /register) · REQUIREMENTS.md FR-01..FR-03 BR-01..BR-03 · USER-STORIES.md US-C01a US-C01b · ARCH.md. เขียนเฉพาะ src/routes/auth.js src/lib/guard.js views/auth/",
+   "timeout": 2400
+  },
+  {
+   "id": "B05",
+   "title": "ยื่นคำขอ: บริการ ฟอร์ม ไฟล์แนบ ร่าง ชำระ QR",
+   "size": "L",
+   "depends_on": [
+    "B01",
+    "B03"
+   ],
+   "skill": "yolo",
+   "difficulty": 3,
+   "output": "src/routes/citizen-apply.js",
+   "done": "FR-04..FR-08 ผ่าน: ค่าธรรมเนียมทันที · ไฟล์ตรวจ magic bytes/ขนาด/จำนวน · ร่าง · เอกสารบังคับ · QR 15 นาที · เลขคำขอ EG-ปี-6หลัก ตาม CONTRACT",
+   "detail": "อ่าน CONTRACT.md (หน้า /citizen /citizen/new/:service API ที่เกี่ยว) · REQUIREMENTS.md FR-04..FR-08 BR-04..BR-11 · USER-STORIES.md US-C02a US-C02b US-C03 · ARCH.md · src/lib/rules.js. เขียนเฉพาะ src/routes/citizen-apply.js src/lib/files.js views/citizen/apply/",
+   "timeout": 3600
+  },
+  {
+   "id": "B06",
+   "title": "ติดตามคำขอ ยกเลิก ส่งแก้ไข",
+   "size": "M",
+   "depends_on": [
+    "B01",
+    "B03"
+   ],
+   "skill": "cyolo",
+   "difficulty": 2,
+   "output": "src/routes/citizen-cases.js",
+   "done": "FR-09..FR-11 ผ่าน: รายการ/ไทม์ไลน์/กำหนดเสร็จ/ระดับเตือน · ยกเลิกเฉพาะ SUBMITTED ไม่มีผู้รับ · ส่งแก้ใน 168 ชม. ตาม CONTRACT",
+   "detail": "อ่าน CONTRACT.md (หน้า /citizen /citizen/cases/:caseNo) · REQUIREMENTS.md FR-09..FR-11 BR-12..BR-14 BR-20 BR-22 · USER-STORIES.md US-C02c · ARCH.md · src/lib/rules.js. เขียนเฉพาะ src/routes/citizen-cases.js views/citizen/cases/",
+   "timeout": 2400
+  },
+  {
+   "id": "B07",
+   "title": "งานเจ้าหน้าที่/หัวหน้า: คิว รับ ตีกลับ ส่งต่อ อนุมัติ ปกป้องเลขบัตร",
+   "size": "L",
+   "depends_on": [
+    "B01",
+    "B03"
+   ],
+   "skill": "yolo",
+   "difficulty": 3,
+   "output": "src/routes/officer.js",
+   "done": "FR-12..FR-16 FR-21 FR-29 ผ่าน: คิวเรียงตาม BR-16 · รับครั้งละ 1 (409) · งานในมือ ≤10 · ตีกลับ ≤2 เหตุผล ≥10 ตัว · เส้นทางตาม BR-21 · เลขบัตรปิดบัง + UNMASK audit",
+   "detail": "อ่าน CONTRACT.md (หน้า /officer/* /head/approvals API ที่เกี่ยว) · REQUIREMENTS.md FR-12..FR-16 FR-21 FR-29 BR-15..BR-19 BR-21 BR-24 BR-29 · USER-STORIES.md US-O01a US-O01b US-O03a · ARCH.md · src/lib/rules.js. เขียนเฉพาะ src/routes/officer.js src/lib/mask.js views/officer/ views/head/",
+   "timeout": 3600
+  },
+  {
+   "id": "B08",
+   "title": "ออกเอกสารดิจิทัล + หน้า verify",
+   "size": "M",
+   "depends_on": [
+    "B01",
+    "B03"
+   ],
+   "skill": "cyolo",
+   "difficulty": 2,
+   "output": "src/routes/documents.js",
+   "done": "FR-17 FR-18 ผ่าน: เลขเอกสาร ลายเซ็น HMAC-SHA256 อายุตาม BR-23 · /verify/:code ไม่ต้องล็อกอิน ชื่อปิดบัง · tamper แล้วตรวจไม่ผ่าน",
+   "detail": "อ่าน CONTRACT.md (หน้า /verify/:code API เอกสาร tamper hook) · REQUIREMENTS.md FR-17 FR-18 BR-23 · USER-STORIES.md US-O03b · ARCH.md · src/lib/rules.js. เขียนเฉพาะ src/routes/documents.js src/lib/sign.js views/verify/",
+   "timeout": 2400
+  },
+  {
+   "id": "B09",
+   "title": "SLA แจ้งเตือนกระดิ่ง + ยกเลิกอัตโนมัติ",
+   "size": "M",
+   "depends_on": [
+    "B03"
+   ],
+   "skill": "cyolo",
+   "difficulty": 2,
+   "output": "src/lib/sla-jobs.js",
+   "done": "FR-19 FR-20 ผ่าน: ประเมินทุก request (ยกเว้น /api/test/*) · ผู้รับแจ้งเตือนตาม BR-15 · ยกเลิกเมื่อเลย 168 ชม. · หน้า /notifications ตาม CONTRACT",
+   "detail": "อ่าน CONTRACT.md (§0 ข้อ 7 · หน้า /notifications) · REQUIREMENTS.md FR-19 FR-20 BR-14 BR-15 BR-20 · USER-STORIES.md US-O02 · ARCH.md · src/lib/rules.js. เขียนเฉพาะ src/lib/sla-jobs.js src/routes/notifications.js views/notifications/",
+   "timeout": 2400
+  },
+  {
+   "id": "B10",
+   "title": "Dashboard + ส่งออก Excel/PDF",
+   "size": "M",
+   "depends_on": [
+    "B03"
+   ],
+   "skill": "review",
+   "worker": "cyolo",
+   "difficulty": 3,
+   "max_rounds": 3,
+   "output": "src/routes/dashboard.js",
+   "done": "FR-22 FR-23 ผ่าน: ตัวเลขรับเรื่อง ปิดงาน ทันกำหนด % คงค้าง เกินกำหนด ตาม BR-25 BR-26 ตรงตัวอย่างใน TEST-DATA · ไฟล์ส่งออกเท่าจอและไม่มีข้อมูลส่วนบุคคล",
+   "detail": "อ่าน CONTRACT.md (หน้า /dashboard API ส่งออก) · REQUIREMENTS.md FR-22 FR-23 BR-25 BR-26 · TEST-DATA.md (ตัวเลข Dashboard ที่คาดหวัง) · USER-STORIES.md US-A01 · ARCH.md · src/lib/rules.js. เขียนเฉพาะ src/routes/dashboard.js src/lib/export.js views/dashboard/",
+   "timeout": 2400
+  },
+  {
+   "id": "B11",
+   "title": "Audit Trail + หน้าผู้ดูแล (บริการ วันหยุด ผู้ใช้)",
+   "size": "M",
+   "depends_on": [
+    "B01"
+   ],
+   "skill": "cyolo",
+   "difficulty": 2,
+   "output": "src/routes/admin-audit.js",
+   "done": "FR-24..FR-27 ผ่าน: audit 10 เหตุการณ์ กรอง ส่งออก CSV · แก้ค่าธรรมเนียม 0–100,000 SLA 1–60 · วันหยุดซ้ำ ✗ · admin เปลี่ยนบทบาทตัวเอง ✗ ตาม CONTRACT",
+   "detail": "อ่าน CONTRACT.md (หน้า /audit /admin/*) · REQUIREMENTS.md FR-24..FR-27 BR-11 BR-27 BR-28 · USER-STORIES.md US-A02 US-AD01 · ARCH.md. เขียนเฉพาะ src/routes/admin-audit.js src/lib/audit.js views/audit/ views/admin/",
+   "timeout": 2400
+  },
+  {
+   "id": "B12",
+   "title": "ชุด Playwright ครบ 51 TC จาก TEST-PLAN",
+   "size": "L",
+   "depends_on": [],
+   "skill": "yolo",
+   "difficulty": 3,
+   "output": "tests/egov.spec.ts",
+   "done": "มี test ครบทุก TC ใน TEST-PLAN.md ชื่อขึ้นต้นด้วยรหัส TC · ทุก test เริ่มด้วย reset แล้วล็อกอินใหม่ · ใช้ data-testid ตาม CONTRACT · ผลคาดหวังตรงการ์ดตัวอักษร",
+   "detail": "อ่านได้แค่ /workspace/egov-brief/TEST-PLAN.md CONTRACT.md TEST-DATA.md ห้ามอ่านโค้ดเว็บใน src. เขียนเฉพาะ tests/egov.spec.ts tests/helpers.ts playwright.config.ts (baseURL จาก env BASE_URL)",
+   "timeout": 3600
+  },
+  {
+   "id": "B13",
+   "title": "รวม + รัน Playwright เต็ม + BUG_MODE ทีละตัว",
+   "size": "L",
+   "depends_on": [
+    "B02",
+    "B04",
+    "B05",
+    "B06",
+    "B07",
+    "B08",
+    "B09",
+    "B10",
+    "B11",
+    "B12"
+   ],
+   "skill": "yolo",
+   "difficulty": 3,
+   "output": "TEST-RESULT.md",
+   "exclusive": true,
+   "done": "docker compose up ด้วย TEST_MODE=1 ผ่าน · Playwright 51 TC ผ่านครบ · BUG_MODE B01–B12 ทีละตัว TC ที่ BUGS.md ระบุล้มจริง · สรุปใน TEST-RESULT.md",
+   "detail": "อ่าน README.md CONTRACT.md TEST-PLAN.md BUGS.md · ARCH.md และโค้ดทุกบล็อก. แก้การเชื่อมต่อระหว่างบล็อกได้ ห้ามแก้ผลคาดหวังใน test ให้ตรงหน้าจอ ข้อที่ล้มจำแนก เว็บผิด/test ผิด/แผนผิด",
+   "timeout": 3600
+  }
+ ]
+}

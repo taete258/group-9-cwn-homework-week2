@@ -1,0 +1,210 @@
+<%# /officer/cases/:caseNo · รายละเอียด + ปุ่มดำเนินการ (B07) · CONTRACT §2.6 · FR-13..FR-16 FR-21 FR-29 %>
+<style>
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .5rem 1rem; margin: 0; }
+  .kv dt { font-weight: 600; color: #3d4248; }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  .action-box { margin-top: .75rem; padding: .75rem; border: 1px solid #d5dbe1; border-radius: 6px; background: #f7f9fb; }
+  .action-box input, .action-box textarea { width: 100%; box-sizing: border-box; }
+</style>
+<section class="card">
+  <h1>คำขอ <span data-testid="case-no"><%= c.case_no %></span></h1>
+  <dl class="kv">
+    <div><dt>สถานะ</dt><dd><span class="status" data-testid="case-status" data-status="<%= c.status %>"><%= C.STATUS_LABEL[c.status] || c.status %></span></dd></div>
+    <div><dt>บริการ</dt><dd data-testid="case-service"><%= serviceText %></dd></div>
+    <% if (stepLabel) { %><div><dt>ขั้นตอน</dt><dd data-testid="case-step"><%= stepLabel %></dd></div><% } %>
+    <div><dt>ค่าธรรมเนียม</dt><dd data-testid="case-fee"><%= fmt.baht(c.fee) %></dd></div>
+    <div><dt>ผู้ยื่น</dt><dd data-testid="applicant-name"><%= c.applicant_name %></dd></div>
+    <div><dt>เลขบัตรประชาชน</dt><dd>
+      <span data-testid="applicant-id" id="applicant-id"><%= idMasked %></span>
+      <span id="full-id-slot"></span>
+      <% if (can.unmask) { %>
+        <button type="button" class="btn btn-small btn-secondary" data-testid="show-full-id-btn" data-toggle="unmask-box" aria-expanded="false" aria-controls="unmask-box">แสดงเลขเต็ม</button>
+      <% } %>
+    </dd></div>
+    <div><dt>กำหนดเสร็จ</dt><dd><time data-testid="sla-due" data-iso="<%= c.due_at ? fmt.iso(c.due_at) : '' %>"><%= c.due_at ? fmt.date(c.due_at) : '–' %></time></dd></div>
+    <div><dt>ระดับเตือน</dt><dd><% if (level) { %><span class="level" data-testid="sla-level" data-level="<%= level %>"><%= C.SLA_LABEL[level] %></span><% } else { %>–<% } %></dd></div>
+    <div><dt>ผู้ถือเรื่อง</dt><dd data-testid="case-owner"><%= c.owner || 'ยังไม่มีผู้รับ' %></dd></div>
+    <div><dt>ตีกลับแล้ว</dt><dd><span data-testid="return-count"><%= c.return_count || 0 %></span> / 2 ครั้ง</dd></div>
+    <% if (c.status === 'COMPLETED' || c.status === 'REJECTED') { %>
+      <div><dt>ปิดงานเมื่อ</dt><dd><time data-testid="closed-at" data-iso="<%= c.closed_at ? fmt.iso(c.closed_at) : '' %>"><%= c.closed_at ? fmt.date(c.closed_at) : '–' %></time></dd></div>
+    <% } %>
+    <% if (c.status === 'NEED_FIX' && c.return_reason) { %>
+      <div><dt>เหตุผลที่ตีกลับล่าสุด</dt><dd><%= c.return_reason %></dd></div>
+    <% } %>
+    <% if (c.status === 'REJECTED' && c.reject_reason) { %>
+      <div><dt>เหตุผลที่ไม่อนุมัติ</dt><dd><%= c.reject_reason %></dd></div>
+    <% } %>
+  </dl>
+
+  <% if (can.unmask) { %>
+  <div id="unmask-box" class="action-box" hidden>
+    <label for="unmask-reason">เหตุผลที่ขอดูเลขบัตรเต็ม (บันทึกใน Audit)</label>
+    <input type="text" id="unmask-reason" data-testid="unmask-reason" autocomplete="off">
+    <p class="field-error" data-testid="unmask-error" id="unmask-error" role="alert" hidden></p>
+    <button type="button" class="btn" data-testid="unmask-submit" id="unmask-submit">ยืนยัน</button>
+  </div>
+  <% } %>
+</section>
+
+<% const anyAction = can.claim || can.ret || can.forward || can.approve || can.reject || can.issue; %>
+<% if (anyAction) { %>
+<section class="card" aria-labelledby="actions-h">
+  <h2 id="actions-h">ดำเนินการ</h2>
+  <div class="row">
+    <% if (can.claim) { %><button type="button" class="btn" data-testid="claim-btn" data-act="claim">รับเรื่อง</button><% } %>
+    <% if (can.approve) { %><button type="button" class="btn" data-testid="approve-btn" data-act="approve">อนุมัติ</button><% } %>
+    <% if (can.issue) { %><button type="button" class="btn" data-testid="issue-btn" data-act="issue">ออกเอกสาร</button><% } %>
+    <% if (can.ret) { %><button type="button" class="btn btn-secondary" data-testid="return-btn" data-toggle="return-box" aria-expanded="false" aria-controls="return-box">ตีกลับ</button><% } %>
+    <% if (can.reject) { %><button type="button" class="btn btn-danger" data-testid="reject-btn" data-toggle="reject-box" aria-expanded="false" aria-controls="reject-box">ไม่อนุมัติ</button><% } %>
+  </div>
+
+  <% if (can.forward) { %>
+  <div class="action-box">
+    <label for="forward-note">หมายเหตุส่งต่อ (ไม่บังคับ)</label>
+    <textarea id="forward-note" data-testid="forward-note" rows="2"></textarea>
+    <p class="muted">ระบบส่งต่อไปขั้นถัดไปตามเส้นทางของบริการโดยอัตโนมัติ</p>
+    <button type="button" class="btn" data-testid="forward-btn" data-act="forward">ผ่าน/ส่งต่อ</button>
+  </div>
+  <% } %>
+
+  <% if (can.ret) { %>
+  <div id="return-box" class="action-box" hidden>
+    <label for="return-reason">เหตุผลที่ตีกลับ (อย่างน้อย 10 ตัวอักษร)</label>
+    <textarea id="return-reason" data-testid="return-reason" rows="3"></textarea>
+    <p class="field-error" data-testid="return-reason-error" id="return-reason-error" role="alert" hidden></p>
+    <button type="button" class="btn" data-testid="return-submit" data-act="return">ยืนยันตีกลับ</button>
+  </div>
+  <% } %>
+
+  <% if (can.reject) { %>
+  <div id="reject-box" class="action-box" hidden>
+    <label for="reject-reason">เหตุผลที่ไม่อนุมัติ (อย่างน้อย 10 ตัวอักษร)</label>
+    <textarea id="reject-reason" data-testid="reject-reason" rows="3"></textarea>
+    <p class="field-error" data-testid="reject-reason-error" id="reject-reason-error" role="alert" hidden></p>
+    <button type="button" class="btn btn-danger" data-testid="reject-submit" data-act="reject">ยืนยันไม่อนุมัติ</button>
+  </div>
+  <% } %>
+</section>
+<% } %>
+
+<% if (doc) { %>
+<section class="card" aria-labelledby="doc-h">
+  <h2 id="doc-h">เอกสารดิจิทัล</h2>
+  <p>เลขเอกสาร: <strong data-testid="doc-no"><%= doc.doc_no %></strong></p>
+  <p>รหัสตรวจสอบ: <strong data-testid="verify-code"><%= doc.verify_code %></strong></p>
+  <% if (qrDataUrl) { %>
+    <img data-testid="doc-qr" data-url="<%= verifyUrl %>" src="<%= qrDataUrl %>" alt="QR ตรวจสอบเอกสาร <%= doc.doc_no %>" width="160" height="160">
+  <% } else { %>
+    <p data-testid="doc-qr" data-url="<%= verifyUrl %>"><a href="<%= verifyUrl %>"><%= verifyUrl %></a></p>
+  <% } %>
+</section>
+<% } %>
+
+<section class="card" aria-labelledby="files-h">
+  <h2 id="files-h">เอกสารแนบ</h2>
+  <% if (files.length) { %>
+  <ul>
+    <% files.forEach((f) => { %>
+    <li data-testid="doc-item" data-name="<%= f.name %>" data-file-id="<%= f.id %>">
+      <a data-testid="doc-download-link" href="/api/files/<%= encodeURIComponent(f.id) %>" download="<%= f.name %>"><%= f.name %></a>
+      <span class="muted">(<%= f.doc_key %> · <%= Number(f.size).toLocaleString('en-US') %> ไบต์)</span>
+    </li>
+    <% }) %>
+  </ul>
+  <% } else { %>
+  <p class="muted">ไม่มีเอกสารแนบที่เปิดดูได้</p>
+  <% } %>
+</section>
+
+<section class="card" aria-labelledby="tl-h">
+  <h2 id="tl-h">ไทม์ไลน์</h2>
+  <ol data-testid="case-timeline">
+    <% timeline.forEach((t) => { %>
+    <li data-testid="timeline-item" data-iso="<%= fmt.iso(t.at) %>"><time><%= fmt.date(t.at) %></time> · <%= t.label %><% if (t.actor) { %> · <%= t.actor %><% } %><% if (t.note) { %> — <%= t.note %><% } %></li>
+    <% }) %>
+  </ol>
+</section>
+
+<p><a href="<%= user.role === 'head' ? '/head/approvals' : '/officer/queue' %>">← กลับ</a></p>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var caseNo = <%- JSON.stringify(c.case_no) %>;
+  var enc = encodeURIComponent(caseNo);
+  var URLS = {
+    claim: '/api/officer/cases/' + enc + '/claim',
+    'return': '/api/officer/cases/' + enc + '/return',
+    forward: '/api/officer/cases/' + enc + '/forward',
+    approve: '/api/cases/' + enc + '/approve',
+    reject: '/api/cases/' + enc + '/reject',
+    issue: '/api/officer/cases/' + enc + '/issue',
+    unmask: '/api/officer/cases/' + enc + '/unmask'
+  };
+  function $(id) { return document.getElementById(id); }
+  function setErr(id, msg) { var el = $(id); if (!el) return; el.textContent = msg || ''; if (msg) el.removeAttribute('hidden'); else el.setAttribute('hidden', ''); }
+  /* โหลดเนื้อหาหน้าใหม่โดยไม่ navigate (สถานะ/ปุ่มอัปเดตทันที · ไม่ชนกับการเปลี่ยนหน้าของผู้ใช้) */
+  async function softRefresh() {
+    var r = await fetch(location.href, { headers: { Accept: 'text/html' }, credentials: 'same-origin' });
+    var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+    var nm = doc.getElementById('main');
+    if (nm) document.getElementById('main').innerHTML = nm.innerHTML;
+  }
+  function fmtId(d) { d = String(d || '').replace(/\D/g, ''); return d.length === 13 ? d[0] + '-' + d.slice(1, 5) + '-' + d.slice(5, 10) + '-' + d.slice(10, 12) + '-' + d[12] : d; }
+
+  document.addEventListener('click', async function (ev) {
+    var tg = ev.target.closest('[data-toggle]');
+    if (tg) {
+      var box = $(tg.dataset.toggle);
+      if (box) {
+        var open = box.hasAttribute('hidden');
+        if (open) box.removeAttribute('hidden'); else box.setAttribute('hidden', '');
+        tg.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) { var f = box.querySelector('textarea,input'); if (f) f.focus(); }
+      }
+      return;
+    }
+    if (ev.target.closest('#unmask-submit')) {
+      ev.preventDefault();
+      setErr('unmask-error', '');
+      var reason = $('unmask-reason').value;
+      if (!reason.trim()) { setErr('unmask-error', 'กรุณากรอกเหตุผล'); return; }
+      var r = await EG.api('POST', URLS.unmask, { reason: reason });
+      if (!r.ok) { setErr('unmask-error', (r.data && r.data.message) || 'ทำรายการไม่สำเร็จ'); return; }
+      var slot = $('full-id-slot');
+      slot.innerHTML = '';
+      var s = document.createElement('strong');
+      s.setAttribute('data-testid', 'full-id');
+      s.textContent = fmtId(r.data.idNo);
+      slot.appendChild(document.createTextNode(' เลขเต็ม: '));
+      slot.appendChild(s);
+      $('unmask-box').setAttribute('hidden', '');
+      return;
+    }
+    var btn = ev.target.closest('[data-act]');
+    if (!btn) return;
+    ev.preventDefault();
+    if (btn.disabled) return;
+    var act = btn.dataset.act;
+    var body;
+    var errId = null;
+    if (act === 'return') { body = { reason: $('return-reason').value }; errId = 'return-reason-error'; }
+    else if (act === 'reject') { body = { reason: $('reject-reason').value }; errId = 'reject-reason-error'; }
+    else if (act === 'forward') { body = { note: $('forward-note').value }; }
+    EG.clearMessages();
+    if (errId) setErr(errId, '');
+    btn.disabled = true;
+    try {
+      var res = await EG.api('POST', URLS[act], body);
+      if (res.ok) {
+        try { await softRefresh(); } catch (e) { /* ignore */ }
+        EG.showSuccess('บันทึกแล้ว');
+        return;
+      }
+      var msg = (res.data && res.data.message) || 'ทำรายการไม่สำเร็จ';
+      if (errId && res.data && res.data.code === 'REASON_TOO_SHORT') setErr(errId, msg);
+      else EG.showError(msg);
+    } catch (e) { EG.showError('ทำรายการไม่สำเร็จ'); }
+    btn.disabled = false;
+  });
+});
+</script>
